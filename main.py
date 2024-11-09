@@ -15,7 +15,6 @@ POST --> Crear información
 PUT --> Actualizar información
 DELETE --> Borrar información
 '''
-
 # Endpoint para obtener un usuario por ID
 @app.route("/users/<user_id>")
 def get_user(user_id):
@@ -56,7 +55,6 @@ def delete_user(user_id):
         "status": "user deleted"
     }
     return jsonify(response), 200
-
 
 if __name__ == '__main__':
     app.run(debug=True)
