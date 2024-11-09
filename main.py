@@ -1,60 +1,70 @@
 from flask import Flask, jsonify, request
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
+
+# Configuración de la base de datos SQLite
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Inicializa la base de datos
+db = SQLAlchemy(app)
+
+# Define el modelo de usuario
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    telefono = db.Column(db.String(20), nullable=False)
+
+# Crea las tablas en la base de datos (solo la primera vez)
+with app.app_context():
+    db.create_all()
 
 # Endpoint raíz
 @app.route("/")
 def root():
     return "root"
 
-
-'''
-Crear los endpoints para los siguientes métodos
-GET --> Obtener información
-POST --> Crear información
-PUT --> Actualizar información
-DELETE --> Borrar información
-'''
 # Endpoint para obtener un usuario por ID
-@app.route("/users/<user_id>")
+@app.route("/users/<int:user_id>", methods=['GET'])
 def get_user(user_id):
-    user = {
-        "id": user_id,
-        "name": "Aarock",
-        "telefono": "57993449"
-    }
-    query = request.args.get("query")
-    if query:
-        user["query"] = query
-    return jsonify(user), 200
+    user = User.query.get(user_id)
+    if user:
+        return jsonify({"id": user.id, "name": user.name, "telefono": user.telefono}), 200
+    return jsonify({"error": "User not found"}), 404
 
 # Endpoint para crear un usuario
 @app.route('/users', methods=['POST'])
 def create_user():
     data = request.get_json()
-    data["status"] = "user created"
-    return jsonify(data), 201
+    new_user = User(name=data['name'], telefono=data['telefono'])
+    db.session.add(new_user)
+    db.session.commit()
+    return jsonify({"id": new_user.id, "name": new_user.name, "telefono": new_user.telefono, "status": "user created"}), 201
 
 # Endpoint para actualizar un usuario
-@app.route('/users/<user_id>', methods=['PUT'])
+@app.route('/users/<int:user_id>', methods=['PUT'])
 def update_user(user_id):
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
     data = request.get_json()
-    updated_user = {
-        "id": user_id,
-        "name": data.get("name", "Aarock"),  # Valor por defecto si no se envía "name"
-        "telefono": data.get("telefono", "57993449"),  # Valor por defecto si no se envía "telefono"
-        "status": "user updated"
-    }
-    return jsonify(updated_user), 200
+    user.name = data.get("name", user.name)
+    user.telefono = data.get("telefono", user.telefono)
+    db.session.commit()
+    return jsonify({"id": user.id, "name": user.name, "telefono": user.telefono, "status": "user updated"}), 200
 
 # Endpoint para borrar un usuario
-@app.route('/users/<user_id>', methods=['DELETE'])
+@app.route('/users/<int:user_id>', methods=['DELETE'])
 def delete_user(user_id):
-    response = {
-        "id": user_id,
-        "status": "user deleted"
-    }
-    return jsonify(response), 200
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({"id": user.id, "status": "user deleted"}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)
